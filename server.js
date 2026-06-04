@@ -24,15 +24,26 @@ app.post("/optimize", async (req, res) => {
         messages: [
           {
             role: "user",
-            content: `You are a code expert. Return ONLY raw JSON, no markdown, no backticks, no extra text.
+            content: `You are a code analysis expert. Analyze this code carefully regardless of programming language.
 
-Strict rules:
+Return ONLY a raw JSON object, no markdown, no backticks, no extra text.
+
+Rules:
 - No real newlines inside string values, use \\n instead
 - No unescaped quotes inside strings
 - Valid JSON only
 
-Format:
-{"optimizedCode":"code here","explanation":"what you improved","complexity":"O(n)","improvements":["point 1","point 2","point 3"]}
+JSON format:
+{"optimizedCode":"full optimized version of the code","explanation":"detailed explanation of what the original code does and what complexity it has and why","complexity":"accurate Big O like O(n), O(n^2), O(log n), O(n+m), O(1) etc — analyze the actual algorithm not just loop count","improvements":["specific improvement 1","specific improvement 2","specific improvement 3"]}
+
+Complexity rules to follow:
+- If code uses HashMap/HashSet/unordered_map/unordered_set with loops = O(n) not O(n^2)
+- If code uses binary search pattern = O(log n)
+- If code has two separate loops (not nested) = O(n)
+- If code has nested loops without hash structures = O(n^2)
+- If code is recursive without memoization = O(2^n)
+- If code uses sorting = O(n log n)
+- Always analyze the ACTUAL algorithm, not just count loops
 
 Code to analyze:
 ${code}`

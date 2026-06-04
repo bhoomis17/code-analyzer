@@ -14,53 +14,31 @@ function App() {
 
   const languages = ["JavaScript", "Python", "Java", "C++", "TypeScript", "Go"];
 
-  const analyzeCode = () => {
+  // Both Analyze and AI Optimize now use AI for accurate results
+  const analyzeCode = async () => {
     if (!code.trim()) { setError("Please paste some code first!"); return; }
-    setError(""); setGeneratedCode(""); setImprovements([]);
+    setError(""); setLoading(true); setGeneratedCode(""); setImprovements([]);
 
-    const lines = code.split("\n");
-    let maxDepth = 0, currentDepth = 0, hasLog = false;
+    try {
+      const response = await axios.post("http://localhost:5000/optimize", { code });
+      const data = response.data;
 
-    lines.forEach(line => {
-      if (line.includes("for") || line.includes("while")) {
-        currentDepth++;
-        if (currentDepth > maxDepth) maxDepth = currentDepth;
-      }
-      if (line.includes("}")) currentDepth = Math.max(0, currentDepth - 1);
-      if (line.includes("*2") || line.includes("/2")) hasLog = true;
-    });
-
-    let complexity = "O(1)", explanation = "No loops detected",
-        suggestion = "Code is already optimal.", type = "constant";
-
-    if (hasLog) {
-      complexity = "O(log n)"; explanation = "Logarithmic pattern detected";
-      suggestion = "Efficient binary or log approach in use."; type = "log";
-    } else if (maxDepth === 1) {
-      complexity = "O(n)"; explanation = "Single loop detected";
-      suggestion = "Consider reducing iteration count if possible."; type = "single";
-    } else if (maxDepth >= 2) {
-      complexity = `O(n^${maxDepth})`; explanation = `${maxDepth}-level nested loops detected`;
-      suggestion = "Consider using HashMaps or Sets to reduce nesting."; type = "nested";
+      setResult({
+        complexity:  data.complexity  || "Unknown",
+        explanation: data.explanation || "",
+        suggestion:  "See AI improvements below.",
+        type:        "ai"
+      });
+      setImprovements(data.improvements || []);
+      setGeneratedCode(
+        (data.optimizedCode || "").replace(/\\n/g, "\n").replace(/\\t/g, "\t")
+      );
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Server error. Is your backend running on port 5000?"
+      );
     }
-
-    setResult({ complexity, explanation, suggestion, type });
-  };
-
-  const generateOptimizedCode = () => {
-    if (!result) return;
-    let codeTemplate = "";
-    if (result.type === "nested") {
-      codeTemplate = `// Optimized using HashSet — O(n) instead of O(n^2)\nconst seen = new Set();\n\nfor (const item of arr) {\n  if (seen.has(item)) {\n    console.log("Duplicate:", item);\n  }\n  seen.add(item);\n}`;
-    } else if (result.type === "single") {
-      codeTemplate = `// Mathematical shortcut — O(1) instead of O(n)\nconst sum = n * (n + 1) / 2;`;
-    } else if (result.type === "log") {
-      codeTemplate = `// Binary Search template — O(log n)\nlet low = 0, high = arr.length - 1;\n\nwhile (low <= high) {\n  const mid = Math.floor((low + high) / 2);\n  if (arr[mid] === target) return mid;\n  else if (arr[mid] < target) low = mid + 1;\n  else high = mid - 1;\n}\nreturn -1;`;
-    } else {
-      codeTemplate = `// Already optimal — no changes needed.`;
-    }
-    setGeneratedCode(codeTemplate);
-    setImprovements([]);
+    setLoading(false);
   };
 
   const getAIOptimizedCode = async () => {
@@ -102,10 +80,27 @@ function App() {
 
   const complexityColor = (c) => {
     if (!c) return "#94a3b8";
-    if (c.includes("1"))   return "#22c55e";
-    if (c.includes("log")) return "#3b82f6";
-    if (c.includes("n)") || c === "Analyzed" || c === "Optimal") return "#f59e0b";
+    if (c === "O(1)")        return "#22c55e";
+    if (c.includes("log"))   return "#3b82f6";
+    if (c.includes("n log")) return "#f59e0b";
+    if (c === "O(n)" || c.includes("n+m") || c.includes("n + m")) return "#f59e0b";
+    if (c.includes("n²") || c.includes("n^2")) return "#ef4444";
+    if (c.includes("2^n") || c.includes("n!")) return "#dc2626";
+    if (c === "Analyzed" || c === "Optimal" || c === "Unknown") return "#a1a1aa";
     return "#ef4444";
+  };
+
+  const complexityWidth = (c) => {
+    if (!c) return "10%";
+    if (c === "O(1)")        return "5%";
+    if (c.includes("log"))   return "20%";
+    if (c === "O(n)")        return "40%";
+    if (c.includes("n log")) return "55%";
+    if (c.includes("n+m") || c.includes("n + m")) return "40%";
+    if (c.includes("n²") || c.includes("n^2")) return "75%";
+    if (c.includes("n^3"))   return "88%";
+    if (c.includes("2^n") || c.includes("n!")) return "98%";
+    return "50%";
   };
 
   return (
@@ -129,8 +124,8 @@ function App() {
             <span className="status-dot"></span>
             <span>API Connected</span>
           </div>
-          
-            <a href="https://github.com/bhoomis17/code-analyzer"
+          <a
+            href="https://github.com/bhoomis17/code-analyzer"
             target="_blank"
             rel="noreferrer"
             className="github-btn"
@@ -144,16 +139,16 @@ function App() {
       </nav>
 
       {/* HERO */}
-      <header className="hero">
+      <header className="hero" id="analyzer">
         <div className="hero-content">
-          <div className="hero-badge">Static + AI Analysis</div>
+          <div className="hero-badge">AI-Powered Analysis</div>
           <h1 className="hero-title">
             Understand your code's<br />
             <span className="hero-accent">complexity instantly</span>
           </h1>
           <p className="hero-sub">
-            Paste any code snippet — get Big O analysis, AI-powered optimization,
-            and a refactored version in seconds.
+            Paste any code snippet — get accurate Big O analysis, AI-powered optimization,
+            and a refactored version in seconds. Works for any language.
           </p>
         </div>
         <div className="hero-stats">
@@ -215,7 +210,7 @@ function App() {
               className="code-input"
               value={code}
               onChange={e => { setCode(e.target.value); setError(""); }}
-              placeholder={`// Paste your ${lang} code here...\n// Example:\nfor (let i = 0; i < n; i++) {\n  for (let j = 0; j < n; j++) {\n    console.log(i, j);\n  }\n}`}
+              placeholder={`// Paste your ${lang} code here...\n// Works with any language!\n// Example:\nfor (let i = 0; i < n; i++) {\n  for (let j = 0; j < n; j++) {\n    console.log(i, j);\n  }\n}`}
               spellCheck={false}
             />
           </div>
@@ -226,7 +221,12 @@ function App() {
             </span>
             <div className="action-btns">
               <button className="btn-secondary" onClick={analyzeCode} disabled={loading}>
-                Analyze
+                {loading ? (
+                  <span className="btn-loading">
+                    <span className="spinner" style={{borderTopColor:"#fff"}}></span>
+                    Analyzing...
+                  </span>
+                ) : "Analyze"}
               </button>
               <button className="btn-primary" onClick={getAIOptimizedCode} disabled={loading}>
                 {loading ? (
@@ -269,7 +269,7 @@ function App() {
                 </svg>
               </div>
               <p className="empty-title">No analysis yet</p>
-              <p className="empty-sub">Paste code and click Analyze or AI Optimize</p>
+              <p className="empty-sub">Paste any code and click Analyze or AI Optimize</p>
             </div>
           )}
 
@@ -289,12 +289,7 @@ function App() {
                   <div
                     className="complexity-fill"
                     style={{
-                      width:
-                        result.complexity.includes("1") ? "8%" :
-                        result.complexity.includes("log") ? "22%" :
-                        result.complexity === "Optimal" ? "8%" :
-                        result.complexity.includes("n)") ? "50%" :
-                        result.complexity.includes("2") ? "75%" : "90%",
+                      width: complexityWidth(result.complexity),
                       background: complexityColor(result.complexity)
                     }}
                   ></div>
@@ -316,12 +311,6 @@ function App() {
                 </div>
               </div>
 
-              {result.type !== "ai" && (
-                <button className="btn-secondary full-width" onClick={generateOptimizedCode}>
-                  Generate Template
-                </button>
-              )}
-
               {/* Improvements */}
               {improvements.length > 0 && (
                 <div className="improvements">
@@ -339,9 +328,7 @@ function App() {
               {generatedCode && (
                 <div className="output-wrap">
                   <div className="output-header">
-                    <span className="output-label">
-                      {result.type === "ai" ? "AI Optimized Code" : "Template Code"}
-                    </span>
+                    <span className="output-label">AI Optimized Code</span>
                     <button className="copy-btn" onClick={handleCopy}>
                       {copied ? (
                         <>
@@ -379,8 +366,8 @@ function App() {
             </svg>
           </div>
           <div>
-            <div className="feature-title">Instant Analysis</div>
-            <div className="feature-desc">Big O complexity in milliseconds</div>
+            <div className="feature-title">Accurate Analysis</div>
+            <div className="feature-desc">AI understands your actual algorithm</div>
           </div>
         </div>
         <div className="feature">
@@ -401,7 +388,7 @@ function App() {
             </svg>
           </div>
           <div>
-            <div className="feature-title">Multi-language</div>
+            <div className="feature-title">Any Language</div>
             <div className="feature-desc">JS, Python, Java, C++ and more</div>
           </div>
         </div>
@@ -433,17 +420,17 @@ function App() {
           <div className="doc-card">
             <div className="doc-num">02</div>
             <h3>Analyze complexity</h3>
-            <p>Click Analyze to instantly detect Big O complexity — O(1), O(n), O(n²) and more — using static analysis.</p>
+            <p>Click Analyze — AI reads your actual algorithm and returns the correct Big O complexity, not just a loop count.</p>
           </div>
           <div className="doc-card">
             <div className="doc-num">03</div>
             <h3>AI Optimize</h3>
-            <p>Click AI Optimize to send your code to an LLM that rewrites it with better data structures and algorithms.</p>
+            <p>Click AI Optimize to get a fully rewritten version using better data structures and algorithms.</p>
           </div>
           <div className="doc-card">
             <div className="doc-num">04</div>
             <h3>Copy and use</h3>
-            <p>Copy the optimized code with one click and use it directly in your project.</p>
+            <p>Copy the optimized code with one click and drop it straight into your project.</p>
           </div>
         </div>
       </section>
@@ -505,7 +492,7 @@ function App() {
         <div className="footer-left">
           <span className="logo-text">BTrace</span>
           <span className="footer-sep">—</span>
-          <span>Built by Vaishnavi Salian</span>
+          <span>Built by Bhoomi Salian</span>
         </div>
         <div className="footer-right">
           <a href="https://github.com/bhoomis17/code-analyzer" target="_blank" rel="noreferrer">
@@ -513,6 +500,7 @@ function App() {
           </a>
         </div>
       </footer>
+
     </div>
   );
 }
