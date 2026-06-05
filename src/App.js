@@ -20,7 +20,7 @@ function App() {
     setError(""); setLoading(true); setGeneratedCode(""); setImprovements([]);
 
     try {
-      const response = await axios.post("http://localhost:5000/optimize", { code });
+      const response = await axios.post("https://btrace-backend.onrender.com/optimize", { code });
       const data = response.data;
 
       setResult({
@@ -46,7 +46,7 @@ function App() {
     setError(""); setLoading(true); setGeneratedCode(""); setImprovements([]);
 
     try {
-      const response = await axios.post("http://localhost:5000/optimize", { code });
+      const response = await axios.post("https://btrace-backend.onrender.com/optimize", { code });
       const data = response.data;
 
       setGeneratedCode(
