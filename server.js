@@ -2,13 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const axios   = require("axios");
 const cors    = require("cors");
+const https   = require("https");
 
 const app = express();
 
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://code-analyzer-gray.vercel.app/"
+    "https://code-analyzer-gray.vercel.app"
   ]
 }));
 app.use(express.json());
@@ -59,29 +60,24 @@ ${code}`
         headers: {
           "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:3000",
-          "X-Title": "Smart Code Analyzer"
+          "HTTP-Referer": "https://code-analyzer-gray.vercel.app",
+          "X-Title": "BTrace Code Analyzer"
         }
       }
     );
 
     const rawText = response.data.choices[0].message.content;
-
-    // Clean markdown backticks
     let cleaned = rawText.replace(/```json|```/g, "").trim();
 
-    // Try parsing
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      // Try extracting JSON object manually
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           parsed = JSON.parse(jsonMatch[0]);
         } catch (e2) {
-          // JSON found but still broken — return friendly fallback
           parsed = {
             optimizedCode: "// Code is already well optimized.\n// No further improvements needed.",
             explanation: "Your code follows good practices and is already efficient.",
@@ -94,7 +90,6 @@ ${code}`
           };
         }
       } else {
-        // No JSON found at all — return friendly fallback
         parsed = {
           optimizedCode: "// Code is already well optimized.\n// No further improvements needed.",
           explanation: "Your code follows good practices and is already efficient.",
@@ -116,6 +111,15 @@ ${code}`
   }
 });
 
-app.listen(5000, () => {
-  console.log("Server running on http://localhost:5000");
+// Keep Render server awake — pings every 14 minutes
+setInterval(() => {
+  https.get("https://btrace-backend.onrender.com", (res) => {
+    console.log("Server kept awake:", res.statusCode);
+  }).on("error", (err) => {
+    console.log("Ping error:", err.message);
+  });
+}, 840000);
+
+app.listen(process.env.PORT || 5000, () => {
+  console.log("Server running on port", process.env.PORT || 5000);
 });
